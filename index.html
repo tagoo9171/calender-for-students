@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2f5bd3">
+  <meta name="description" content="A simple day planner with reminders, repeating tasks and weekly stats.">
+  <title>Daybook</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <span class="brand">Daybook</span>
+      <nav class="tabs" role="tablist" aria-label="Views">
+        <button role="tab" data-view="day">Day</button>
+        <button role="tab" data-view="week">Week</button>
+        <button role="tab" data-view="stats">Stats</button>
+      </nav>
+      <button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="titlebar">
+      <div>
+        <h1 id="title">Today</h1>
+        <p class="sub" id="sub"></p>
+      </div>
+      <div class="daynav">
+        <button id="prev" aria-label="Previous">←</button>
+        <button id="todayBtn">Today</button>
+        <button id="next" aria-label="Next">→</button>
+      </div>
+    </div>
+    <div id="view"></div>
+  </main>
+
+  <button id="addBtn" class="fab" aria-label="Add task">+</button>
+
+  <dialog id="editor">
+    <form id="editForm" class="form" novalidate>
+      <h2 id="edTitle">New task</h2>
+      <label class="full">What
+        <input id="edName" maxlength="80" placeholder="e.g. Read 20 pages" autocomplete="off">
+      </label>
+      <label class="full" id="edDateLbl">Date<input id="edDate" type="date" required></label>
+      <label>Start<input id="edStart" type="time" required></label>
+      <label>End<input id="edEnd" type="time" required></label>
+      <label class="full">Type
+        <select id="edCat">
+          <option value="work">Work</option>
+          <option value="study">Study</option>
+          <option value="personal">Personal</option>
+          <option value="break">Break</option>
+        </select>
+      </label>
+      <label class="check full"><input type="checkbox" id="edRepeat"> Repeat every week</label>
+      <div class="days full" id="edDays" hidden>
+        <label><input type="checkbox" name="repeat" value="1"><span>Mon</span></label>
+        <label><input type="checkbox" name="repeat" value="2"><span>Tue</span></label>
+        <label><input type="checkbox" name="repeat" value="3"><span>Wed</span></label>
+        <label><input type="checkbox" name="repeat" value="4"><span>Thu</span></label>
+        <label><input type="checkbox" name="repeat" value="5"><span>Fri</span></label>
+        <label><input type="checkbox" name="repeat" value="6"><span>Sat</span></label>
+        <label><input type="checkbox" name="repeat" value="0"><span>Sun</span></label>
+      </div>
+      <p class="note full" id="edNote" hidden>Changes apply to every repeat of this task.</p>
+      <p class="err full" id="edErr" hidden></p>
+      <div class="confirm full" id="delConfirm" hidden>
+        <span>Delete this repeating task:</span>
+        <button type="button" id="delOne">Only this day</button>
+        <button type="button" id="delAll" class="danger">Every repeat</button>
+      </div>
+      <div class="actions full">
+        <button type="button" id="edDelete" class="danger">Delete</button>
+        <span class="spacer"></span>
+        <button type="button" id="edCancel">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="settings">
+    <div class="form">
+      <h2>Settings</h2>
+      <label class="full">Remind me
+        <select id="remind">
+          <option value="0">Off</option>
+          <option value="1">When a task starts</option>
+          <option value="5">5 minutes before</option>
+          <option value="10">10 minutes before</option>
+          <option value="15">15 minutes before</option>
+          <option value="30">30 minutes before</option>
+        </select>
+      </label>
+      <div class="full stack">
+        <p class="note" id="notifyStatus"></p>
+        <button type="button" id="notifyBtn">Turn on notifications</button>
+        <p class="note">Reminders work while Daybook is open, in a tab or as an installed app.</p>
+      </div>
+      <div class="full stack">
+        <h3>Backup</h3>
+        <p class="note">Your tasks are saved on this device. Download a backup to move them to another device.</p>
+        <div class="row-btns">
+          <button type="button" id="exportBtn">Download backup</button>
+          <label class="file-btn">Restore backup<input type="file" id="importFile" accept="application/json,.json"></label>
+        </div>
+      </div>
+      <div class="actions full">
+        <span class="spacer"></span>
+        <button type="button" id="closeSettings" class="primary">Done</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

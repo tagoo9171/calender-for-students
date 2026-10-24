@@ -1,0 +1,11 @@
+{
+  "name": "daybook-planner",
+  "version": "1.0.0",
+  "description": "A simple day planner with reminders, repeating tasks and weekly stats.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "npx --yes http-server -c-1 -p 8080 .",
+    "test": "node --test tests/*.test.js"
+  }
+}
