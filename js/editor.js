@@ -1,11 +1,11 @@
-// The add / edit task dialog
+// The add / edit task dialog. Lessons (type Class) are tasks that belong to a course.
 
 import { fmt, toMin, dateKey } from './time.js';
 import { validate } from './store.js';
 
 const $ = id => document.getElementById(id);
 
-export function createEditor({ onSave, onSaveOne, onDelete, onSkip }) {
+export function createEditor({ onSave, onSaveOne, onDelete, onSkip, getCourses, getTermEnd }) {
   const dlg = $('editor');
   let editing = null; // { task, occ } when editing, null when adding
   let pending = null; // checked form data, waiting for "only this day" or "every repeat"
@@ -17,6 +17,32 @@ export function createEditor({ onSave, onSaveOne, onDelete, onSkip }) {
     $('edDays').hidden = !repeatOn();
     $('edDateLbl').firstChild.textContent = repeatOn() ? 'Starts on' : 'Date';
   }
+  const isClass = () => $('edCat').value === 'class';
+
+  function syncCat() {
+    $('edNameLbl').hidden = isClass();
+    $('edCourseLbl').hidden = !isClass();
+    const noun = isClass() ? 'lesson' : 'task';
+    $('edTitle').textContent = (editing ? 'Edit ' : 'New ') + noun;
+  }
+  $('edCat').addEventListener('change', () => {
+    // A new lesson usually repeats every week until the end of term
+    if (isClass() && !editing && !repeatOn()) {
+      $('edRepeat').checked = true;
+      $('edRepeat').dispatchEvent(new Event('change'));
+      if (!$('edUntil').value) $('edUntil').value = getTermEnd() ?? '';
+    }
+    syncCat();
+  });
+
+  function fillCourses(selected) {
+    const courses = getCourses();
+    $('edCourse').innerHTML = courses.length
+      ? courses.map(c => `<option value="${c.id}">${c.name.replace(/[&<>"]/g, ch => `&#${ch.charCodeAt(0)};`)}</option>`).join('')
+      : '<option value="">No courses yet</option>';
+    if (selected) $('edCourse').value = String(selected);
+  }
+
   $('edRepeat').addEventListener('change', () => {
     if (repeatOn() && !repeatBoxes().some(b => b.checked)) {
       const wd = new Date($('edDate').value + 'T00:00').getDay();
@@ -31,19 +57,22 @@ export function createEditor({ onSave, onSaveOne, onDelete, onSkip }) {
   // Any change after "Save" asks again, so the choice always matches the form
   $('editForm').addEventListener('input', () => { $('saveConfirm').hidden = true; pending = null; });
 
-  function open({ task = null, occ = null, date, start = 540, repeat = false }) {
+  function open({ task = null, occ = null, date, start = 540, repeat = false, course = null }) {
     editing = task ? { task, occ } : null;
-    $('edTitle').textContent = task ? 'Edit task' : 'New task';
-    $('edName').value = task?.name ?? '';
+    if (course) repeat = true;
+    $('edName').value = task?.course ? '' : task?.name ?? '';
+    $('edRoom').value = task?.room ?? '';
+    fillCourses(task?.course ?? course);
     $('edDate').value = task ? task.date : date;
     $('edStart').value = fmt(task?.start ?? start);
     $('edEnd').value = fmt((task?.end ?? Math.min(start + 60, 1440)) % 1440);
-    $('edCat').value = task?.cat ?? 'work';
+    $('edCat').value = task?.cat ?? (course ? 'class' : 'study');
     $('edRepeat').checked = !!task?.repeat || repeat;
     const wd = new Date((task ? task.date : date) + 'T00:00').getDay();
-    repeatBoxes().forEach(b => { b.checked = task ? !!task.repeat?.includes(Number(b.value)) : repeat && Number(b.value) === wd; });
+    // A new lesson starts with no day ticked, so its days are always picked on purpose
+    repeatBoxes().forEach(b => { b.checked = task ? !!task.repeat?.includes(Number(b.value)) : repeat && !course && Number(b.value) === wd; });
     $('edEvery').value = String(task?.every || 1);
-    $('edUntil').value = task?.until ?? '';
+    $('edUntil').value = task ? task.until ?? '' : course ? getTermEnd() ?? '' : '';
     $('edErr').hidden = true;
     $('edNote').hidden = !task?.repeat;
     $('edNote').textContent = 'This task repeats. When you save, you can change only this day or every repeat.';
@@ -52,16 +81,20 @@ export function createEditor({ onSave, onSaveOne, onDelete, onSkip }) {
     $('edDelete').hidden = !task;
     $('delConfirm').hidden = true;
     syncRepeat();
+    syncCat();
     dlg.showModal();
-    if (!task) $('edName').focus();
+    if (!task && !isClass()) $('edName').focus();
   }
 
   $('editForm').addEventListener('submit', e => {
     e.preventDefault();
     let end = toMin($('edEnd').value);
     if (end === 0) end = 1440; // "00:00" as an end time means midnight
+    const course = isClass() ? getCourses().find(c => c.id === Number($('edCourse').value)) : null;
     const data = {
-      name: $('edName').value.trim(),
+      name: course ? course.name : $('edName').value.trim(),
+      course: course?.id ?? null,
+      room: $('edRoom').value.trim() || null,
       date: $('edDate').value || dateKey(new Date()),
       start: toMin($('edStart').value),
       end,

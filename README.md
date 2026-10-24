@@ -4,6 +4,7 @@ A day planner for students that you can install on your phone and computer.
 
 - **Day view:** an hourly timeline, an agenda with checkboxes, and the homework due that day (overdue work shows on today)
 - **Week view:** all 7 days side by side, how much homework is due each day, and a weekly study goal
+- **Class timetable:** add your courses (name, teacher, color) and their weekly lessons with rooms. The Classes screen shows the week as a timetable, and lessons also appear in Day, Week and Stats.
 - **Homework:** add assignments with a due date and tick them off
 - **Focus timer:** 25 minutes of focus and a 5 minute break; finished sessions add up to today's focus time
 - **Stats:** hours planned and done this week, by type and by day
@@ -43,9 +44,10 @@ Opening `index.html` by double-clicking won't work, because browsers block JavaS
 | `index.html` | The page and its dialogs |
 | `css/style.css` | All styles, light and dark theme |
 | `js/app.js` | Starts the app and connects buttons to actions |
-| `js/store.js` | Tasks, repeating rules, homework, focus time and saving |
-| `js/views.js` | Draws the Day, Week and Stats screens |
-| `js/editor.js` | The add / edit task dialog |
+| `js/store.js` | Tasks, repeating rules, courses, homework, focus time and saving |
+| `js/views.js` | Draws the Day, Week, Classes, Repeats and Stats screens |
+| `js/editor.js` | The add / edit task and lesson dialog |
+| `js/courses.js` | The add / edit course dialog |
 | `js/reminders.js` | Reminder checks and notifications |
 | `js/stats.js` | Weekly totals |
 | `js/focus.js` | The focus timer |

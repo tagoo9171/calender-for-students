@@ -1,33 +1,37 @@
-// Renders the Day, Week and Stats screens as HTML strings.
+// Renders the Day, Week, Classes, Repeats and Stats screens as HTML strings.
 // Clicks are handled in app.js through data-* attributes.
 
 import { fmt, hoursLabel, columns, parseKey } from './time.js';
 import { CATS, weeklyMinutes } from './store.js';
 
 export const START_H = 6, END_H = 24;
-export const CAT_LABEL = { work: 'Work', study: 'Study', personal: 'Personal', break: 'Break' };
+export const CAT_LABEL = { class: 'Class', study: 'Study', work: 'Work', personal: 'Personal', break: 'Break' };
 
 const esc = s => String(s).replace(/[&<>"']/g, c =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-function hourLines(hourPx, labels = true) {
+// A lesson takes its course's color, anything else its type's color
+const catColor = it => it.color || `var(--c-${it.cat})`;
+const roomLabel = it => (it.room ? ' · ' + esc(it.room) : '');
+
+function hourLines(hourPx, labels = true, startH = START_H, endH = END_H) {
   let html = '';
-  for (let h = START_H; h < END_H; h++) {
-    html += `<div class="hr" style="top:${(h - START_H) * hourPx}px">${labels ? `<span>${String(h).padStart(2, '0')}:00</span>` : ''}</div>`;
+  for (let h = startH; h < endH; h++) {
+    html += `<div class="hr" style="top:${(h - startH) * hourPx}px">${labels ? `<span>${String(h).padStart(2, '0')}:00</span>` : ''}</div>`;
   }
   return html;
 }
 
-function blocks(items, hourPx) {
-  const visible = items.filter(it => it.end > START_H * 60);
+function blocks(items, hourPx, startH = START_H) {
+  const visible = items.filter(it => it.end > startH * 60);
   return columns(visible).map(it => {
-    const from = Math.max(it.start, START_H * 60);
-    const top = (from - START_H * 60) * hourPx / 60;
+    const from = Math.max(it.start, startH * 60);
+    const top = (from - startH * 60) * hourPx / 60;
     const h = Math.max(20, (it.end - from) * hourPx / 60 - 2);
     const time = `${fmt(it.start)}–${fmt(it.end)}`;
-    return `<button class="block${it.done ? ' done' : ''}" data-edit="${it.id}" data-occ="${it.occ}"
-      style="--cat:var(--c-${it.cat});top:${top}px;height:${h}px;left:calc(${it._c / it._n * 100}% + 2px);width:calc(${100 / it._n}% - 4px)"
-      title="${esc(it.name)} · ${time}"><span class="n">${esc(it.name)}</span>${h > 34 ? `<span class="t">${time}${it.repeat ? ' ↻' : ''}</span>` : ''}</button>`;
+    return `<button class="block${it.done ? ' done' : ''}" data-edit="${it.id}"${it.occ ? ` data-occ="${it.occ}"` : ''}
+      style="--cat:${catColor(it)};top:${top}px;height:${h}px;left:calc(${it._c / it._n * 100}% + 2px);width:calc(${100 / it._n}% - 4px)"
+      title="${esc(it.name)} · ${time}${roomLabel(it)}"><span class="n">${esc(it.name)}</span>${h > 34 ? `<span class="t">${time}${it.repeat && it.occ ? ' ↻' : ''}${roomLabel(it)}</span>` : ''}</button>`;
   }).join('');
 }
 
@@ -76,10 +80,10 @@ export function renderDay({ items, isToday, nowMin, dk, homework, focusMin }) {
   const mins = items.reduce((a, x) => a + x.end - x.start, 0);
   const done = items.filter(x => x.done).length;
   const agenda = items.length ? items.map(it => `
-    <li class="${it.done ? 'done' : ''}" style="--cat:var(--c-${it.cat})">
+    <li class="${it.done ? 'done' : ''}" style="--cat:${catColor(it)}">
       <input type="checkbox" data-toggle="${it.id}" data-occ="${it.occ}" ${it.done ? 'checked' : ''} aria-label="Mark ${esc(it.name)} done">
       <span class="dot"></span>
-      <span class="item"><span class="time">${fmt(it.start)}–${fmt(it.end)}${it.repeat ? ' · ' + repeatLabel(it) : ''}</span>
+      <span class="item"><span class="time">${fmt(it.start)}–${fmt(it.end)}${roomLabel(it)}${it.repeat ? ' · ' + repeatLabel(it) : ''}</span>
         <span class="name">${esc(it.name)}</span>${it.ex ? '<span class="ex">example</span>' : ''}</span>
       <button class="link" data-edit="${it.id}" data-occ="${it.occ}">Edit</button>
     </li>`).join('')
@@ -146,12 +150,64 @@ export function renderWeek({ days, nowMin, goal }) {
     <p class="note">Tap a day's name to open it and see its homework.</p>`;
 }
 
+// days: lessons by weekday (0 = Sunday), courses: [{ ...course, lessons }]
+export function renderClasses({ days, courses, todayK }) {
+  const HOUR = 52;
+  // Mon–Fri, plus the weekend only when something is on it
+  const order = [1, 2, 3, 4, 5, ...[6, 0].filter(d => days[d].length)];
+  const all = order.flatMap(d => days[d]);
+  const startH = all.length ? Math.min(...all.map(x => Math.floor(x.start / 60))) : 8;
+  const endH = all.length ? Math.max(...all.map(x => Math.ceil(x.end / 60))) : 17;
+  const todayWd = parseKey(todayK).getDay();
+  const head = order.map(d => `<div class="wk-head${d === todayWd ? ' today' : ''}"><span>${DAY_SHORT[d]}</span></div>`).join('');
+  const cols = order.map(d => `
+    <div class="wk-col${d === todayWd ? ' today' : ''}">${hourLines(HOUR, false, startH, endH)}${blocks(days[d], HOUR, startH)}</div>`).join('');
+  const grid = all.length ? `
+    <div class="panel week timetable">
+      <div class="wk-grid" style="grid-template-columns:52px repeat(${order.length}, minmax(84px, 1fr));min-width:${52 + order.length * 84}px">
+        <div class="wk-corner"></div>${head}
+        <div class="wk-times" style="height:${(endH - startH) * HOUR}px">${hourLines(HOUR, true, startH, endH)}</div>${cols}
+      </div>
+    </div>` : '';
+
+  const cards = courses.map(c => {
+    const lessons = c.lessons.length ? c.lessons.map(t => {
+      const ended = t.until && t.until < todayK;
+      return `
+        <li class="${ended ? 'ended' : ''}">
+          <span class="item"><span class="name">${fmt(t.start)}–${fmt(t.end)}${roomLabel(t)}</span>
+            <span class="time">${repeatLabel(t)}${ended ? ' · ended' : ''}</span></span>
+          <button class="link" data-edit="${t.id}">Edit</button>
+        </li>`;
+    }).join('') : '<li class="empty">No lessons yet.</li>';
+    return `
+    <section class="panel agenda course" style="--cat:${c.color}">
+      <div class="head"><h2><span class="dot"></span>${esc(c.name)}</h2><button class="link" data-course-edit="${c.id}">Edit course</button></div>
+      ${c.teacher ? `<p class="note">${esc(c.teacher)}</p>` : ''}
+      <ul>${lessons}</ul>
+      <button class="link add-lesson" data-lesson-add="${c.id}">+ Add lesson</button>
+    </section>`;
+  }).join('');
+
+  return `
+    <div class="head">
+      <div class="stats">
+        <div><b>${courses.length}</b>courses</div>
+        <div><b>${hoursLabel(all.reduce((a, x) => a + (x.end - x.start) / (x.every || 1), 0))}</b>of class a week</div>
+      </div>
+      <button class="primary" data-course-add>+ New course</button>
+    </div>
+    ${courses.length ? '' : '<p class="note">Start by adding your courses, for example Maths or Physics. Then add each course\'s lessons: the days, times and room.</p>'}
+    ${grid}
+    <div class="grid two">${cards}</div>`;
+}
+
 export function renderRepeats({ tasks, todayK }) {
   const mins = tasks.reduce((a, t) => a + weeklyMinutes(t), 0);
   const rows = tasks.length ? tasks.map(t => {
     const ended = t.until && t.until < todayK;
     return `
-    <li class="${ended ? 'ended' : ''}" style="--cat:var(--c-${t.cat})" data-rt="${t.id}">
+    <li class="${ended ? 'ended' : ''}" style="--cat:${catColor(t)}" data-rt="${t.id}">
       <span class="dot"></span>
       <span class="item"><span class="name">${esc(t.name)}</span>
         <span class="time">${repeatLabel(t)}${ended ? ' · ended' : ''}</span></span>

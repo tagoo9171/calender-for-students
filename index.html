@@ -19,6 +19,7 @@
       <nav class="tabs" role="tablist" aria-label="Views">
         <button role="tab" data-view="day">Day</button>
         <button role="tab" data-view="week">Week</button>
+        <button role="tab" data-view="classes">Classes</button>
         <button role="tab" data-view="repeats">Repeats</button>
         <button role="tab" data-view="stats">Stats</button>
       </nav>
@@ -47,19 +48,26 @@
   <dialog id="editor">
     <form id="editForm" class="form" novalidate>
       <h2 id="edTitle">New task</h2>
-      <label class="full">What
+      <label class="full">Type
+        <select id="edCat">
+          <option value="class">Class</option>
+          <option value="study">Study</option>
+          <option value="work">Work</option>
+          <option value="personal">Personal</option>
+          <option value="break">Break</option>
+        </select>
+      </label>
+      <label class="full" id="edNameLbl">What
         <input id="edName" maxlength="80" placeholder="e.g. Read 20 pages" autocomplete="off">
+      </label>
+      <label class="full" id="edCourseLbl" hidden>Course
+        <select id="edCourse"></select>
       </label>
       <label class="full" id="edDateLbl">Date<input id="edDate" type="date" required></label>
       <label>Start<input id="edStart" type="time" required></label>
       <label>End<input id="edEnd" type="time" required></label>
-      <label class="full">Type
-        <select id="edCat">
-          <option value="work">Work</option>
-          <option value="study">Study</option>
-          <option value="personal">Personal</option>
-          <option value="break">Break</option>
-        </select>
+      <label class="full"><span>Where <small>(optional)</small></span>
+        <input id="edRoom" maxlength="40" placeholder="e.g. Room B2" autocomplete="off">
       </label>
       <label class="check full"><input type="checkbox" id="edRepeat"> Repeat</label>
       <div class="repeat-box full" id="edDays" hidden>
@@ -85,7 +93,7 @@
               <option value="4">4 weeks</option>
             </select>
           </label>
-          <label>Until <small>(optional)</small><input id="edUntil" type="date"></label>
+          <label><span>Until <small>(optional)</small></span><input id="edUntil" type="date"></label>
         </div>
       </div>
       <p class="note full" id="edNote" hidden></p>
@@ -104,6 +112,33 @@
         <button type="button" id="edDelete" class="danger">Delete</button>
         <span class="spacer"></span>
         <button type="button" id="edCancel">Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="courseDlg">
+    <form id="courseForm" class="form" novalidate>
+      <h2 id="coTitle">New course</h2>
+      <label class="full">Name
+        <input id="coName" maxlength="60" placeholder="e.g. Physics" autocomplete="off">
+      </label>
+      <label class="full"><span>Teacher <small>(optional)</small></span>
+        <input id="coTeacher" maxlength="60" placeholder="e.g. Ms Yilmaz" autocomplete="off">
+      </label>
+      <fieldset class="full colors">
+        <legend>Color</legend>
+        <div id="coColors" class="swatches"></div>
+      </fieldset>
+      <p class="err full" id="coErr" hidden></p>
+      <div class="confirm full" id="coDelConfirm" hidden>
+        <span id="coDelMsg"></span>
+        <button type="button" id="coDelYes" class="danger">Delete</button>
+      </div>
+      <div class="actions full">
+        <button type="button" id="coDelete" class="danger">Delete</button>
+        <span class="spacer"></span>
+        <button type="button" id="coCancel">Cancel</button>
         <button type="submit" class="primary">Save</button>
       </div>
     </form>

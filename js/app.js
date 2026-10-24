@@ -1,7 +1,8 @@
 import { dateKey, parseKey, addDays, startOfWeek, nowMinutes, toMin } from './time.js';
 import * as store from './store.js';
 import { weekStats } from './stats.js';
-import { renderDay, renderWeek, renderStats, renderRepeats, START_H } from './views.js';
+import { renderDay, renderWeek, renderStats, renderRepeats, renderClasses, START_H } from './views.js';
+import { createCourseEditor } from './courses.js';
 import { createEditor } from './editor.js';
 import { startReminders, askPermission, notificationsSupported, notify } from './reminders.js';
 import { createFocusTimer } from './focus.js';
@@ -42,9 +43,17 @@ function render() {
   const nowMin = nowMinutes();
   document.querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-selected', b.dataset.view === view));
 
-  $('daynav').hidden = view === 'repeats';
-  if (view === 'repeats') {
-    const tasks = store.repeatingTasks(state);
+  $('daynav').hidden = view === 'repeats' || view === 'classes';
+  if (view === 'classes') {
+    $('title').textContent = 'Class timetable';
+    $('sub').textContent = 'Your courses and their weekly lessons';
+    $('view').innerHTML = renderClasses({
+      days: store.timetable(state, todayK),
+      courses: state.courses.map(c => ({ ...c, lessons: store.lessonsOf(state, c.id) })),
+      todayK,
+    });
+  } else if (view === 'repeats') {
+    const tasks = store.repeatingTasks(state).map(t => ({ ...t, color: store.courseColor(state, t) }));
     $('title').textContent = 'Repeating tasks';
     $('sub').textContent = 'Your weekly routine in one place';
     $('view').innerHTML = renderRepeats({ tasks, todayK });
@@ -113,7 +122,10 @@ function toast(message, withUndo = false) {
 // ---------- editor ----------
 
 const editor = createEditor({
+  getCourses: () => state.courses,
+  getTermEnd: () => state.settings.termEnd,
   onSave(id, data) {
+    if (data.course && data.until) state.settings.termEnd = data.until; // the next lesson ends then too
     if (id) {
       store.updateTask(state, id, data);
       commit('Saved');
@@ -131,6 +143,11 @@ const editor = createEditor({
 // ---------- events ----------
 
 $('view').addEventListener('click', e => {
+  if (e.target.closest('[data-course-add]')) { courseEditor.open(null, nextColor()); return; }
+  const courseEdit = e.target.closest('[data-course-edit]');
+  if (courseEdit) { courseEditor.open(state.courses.find(c => c.id === Number(courseEdit.dataset.courseEdit))); return; }
+  const lessonAdd = e.target.closest('[data-lesson-add]');
+  if (lessonAdd) { editor.open({ date: dateKey(new Date()), start: 540, course: Number(lessonAdd.dataset.lessonAdd) }); return; }
   if (e.target.closest('[data-rt-add]')) { editor.open({ date: dateKey(new Date()), start: 540, repeat: true }); return; }
   const hwAdd = e.target.closest('[data-hw-add]');
   if (hwAdd) { openHomework(hwAdd.dataset.hwAdd); return; }
@@ -175,6 +192,11 @@ $('next').addEventListener('click', () => move(1));
 $('todayBtn').addEventListener('click', () => { cursor = new Date(); cursor.setHours(0, 0, 0, 0); render(); scrollToNow(); });
 
 $('addBtn').addEventListener('click', () => {
+  if (view === 'classes') {
+    if (!state.courses.length) courseEditor.open(null, nextColor());
+    else editor.open({ date: dateKey(new Date()), start: 540, course: state.courses[0].id });
+    return;
+  }
   const isToday = dateKey(cursor) === dateKey(new Date());
   const start = isToday ? Math.min(Math.ceil((nowMinutes() + 1) / 30) * 30, 1380) : 540;
   editor.open({ date: dateKey(cursor), start, repeat: view === 'repeats' });
@@ -185,6 +207,20 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft') move(-1);
   if (e.key === 'ArrowRight') move(1);
   if (e.key === 'n') $('addBtn').click();
+});
+
+// ---------- courses ----------
+
+const nextColor = () => store.COURSE_COLORS.find(c => !state.courses.some(x => x.color === c))
+  ?? store.COURSE_COLORS[state.courses.length % store.COURSE_COLORS.length];
+
+const courseEditor = createCourseEditor({
+  onSave(id, data) {
+    if (id) { store.updateCourse(state, id, data); commit('Course saved'); }
+    else { store.addCourse(state, data); commit('Course added. Now add its lessons.'); }
+  },
+  onDelete(id) { snapshot(); store.removeCourse(state, id); commit('Course deleted', { undo: true }); },
+  lessonCount: id => state.tasks.filter(t => t.course === id).length,
 });
 
 // ---------- repeating tasks ----------

@@ -131,7 +131,8 @@ test('old saves get the new fields', () => {
   const s = store.load(st);
   assert.deepEqual(s.homework, []);
   assert.deepEqual(s.focus, {});
-  assert.deepEqual(s.settings, { remind: 10, studyGoal: 10 });
+  assert.deepEqual(s.settings, { remind: 10, studyGoal: 10, termEnd: null });
+  assert.deepEqual(s.courses, []);
 });
 
 test('focus timer helpers', () => {
@@ -196,4 +197,33 @@ test('repeating tasks are listed in week order with their weekly time', () => {
   store.addTask(s, { name: 'Lab', start: 840, end: 960, cat: 'study', date: MON, repeat: [2], every: 2 });
   assert.deepEqual(store.repeatingTasks(s).map(t => t.name), ['Maths', 'Lab', 'Football', 'Choir']);
   assert.deepEqual(store.repeatingTasks(s).map(store.weeklyMinutes), [120, 60, 120, 60]);
+});
+
+test('courses, lessons and the timetable', () => {
+  const s = store.emptyState();
+  const phys = store.addCourse(s, { name: 'Physics', teacher: 'Ms Kaya' });
+  const maths = store.addCourse(s, { name: 'Maths' });
+  assert.notEqual(phys.color, maths.color, 'each course gets its own color');
+  const lesson = data => store.addTask(s, { cat: 'class', start: 540, end: 630, date: MON, repeat: [1], ...data });
+  lesson({ name: 'Physics', course: phys.id, room: 'B2', repeat: [1, 3] });
+  lesson({ name: 'Physics', course: phys.id, start: 480, end: 530, repeat: [3] });
+  lesson({ name: 'Maths', course: maths.id, until: '2026-10-20' }); // ended
+  const tt = store.timetable(s, WED);
+  assert.deepEqual(tt[3].map(x => x.start), [480, 540], 'Wednesday, in time order');
+  assert.equal(tt[1].length, 1, 'the ended Maths lesson is left out');
+  assert.equal(store.dayItems(s, WED)[0].color, phys.color, 'lessons carry their course color');
+
+  store.updateCourse(s, phys.id, { name: 'Physics II' });
+  assert.ok(store.lessonsOf(s, phys.id).every(t => t.name === 'Physics II'), 'renaming renames the lessons');
+
+  store.toggleDone(s, store.lessonsOf(s, phys.id)[0].id, MON);
+  store.removeCourse(s, phys.id);
+  assert.equal(s.courses.length, 1);
+  assert.equal(s.tasks.filter(t => t.course === phys.id).length, 0, 'its lessons are gone');
+  assert.deepEqual(s.done, {});
+});
+
+test('a lesson needs a course', () => {
+  assert.match(store.validate({ name: '', cat: 'class', course: null, start: 0, end: 60 }), /Pick a course/);
+  assert.equal(store.validate({ name: 'Maths', cat: 'class', course: 3, start: 0, end: 60 }), null);
 });

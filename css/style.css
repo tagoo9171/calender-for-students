@@ -192,11 +192,6 @@ input:not([type=checkbox]):not([type=file]), select {
 .focus-btn.running { border-color: var(--accent); color: var(--accent); }
 .fc-time { margin: 8px 0; text-align: center; font-family: var(--display); font-weight: 700; font-size: 64px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--accent); }
 #focusDlg[data-phase="break"] .fc-time { color: var(--c-personal); }
-@media (max-width: 480px) {
-  .brand { display: none; }
-  .tabs { margin-left: 0; }
-  .tabs button { padding: 6px 10px; }
-}
 
 /* repeat options in the task editor */
 .repeat-box { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: var(--bg); }
@@ -216,3 +211,29 @@ input:not([type=checkbox]):not([type=file]), select {
   .repeats .rt-times { grid-column: 2 / -1; grid-row: 2; }
   .repeats li > .link { grid-column: 3; grid-row: 1; }
 }
+
+/* classes */
+.timetable { height: auto; max-height: min(720px, 75vh); }
+.timetable .wk-head { cursor: default; }
+.course .head h2 { display: flex; align-items: center; gap: 8px; }
+.course .head .dot { width: 12px; height: 12px; }
+.course li { grid-template-columns: minmax(0, 1fr) auto; }
+.course li.ended { opacity: .55; }
+.course .name { font-family: var(--mono); font-size: 14px; }
+.add-lesson { align-self: flex-start; }
+.colors { border: 0; margin: 0; padding: 0; }
+.colors legend { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); padding: 0; margin-bottom: 6px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatches label { position: relative; }
+.swatches input { position: absolute; opacity: 0; }
+.swatches span { display: block; width: 30px; height: 30px; border-radius: 50%; background: var(--sw); cursor: pointer; border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--line); }
+.swatches input:checked + span { box-shadow: 0 0 0 2px var(--fg); }
+.swatches input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 3px; }
+/* five tabs: on phones they get their own row under the brand */
+@media (max-width: 600px) {
+  .top-inner { flex-wrap: wrap; row-gap: 8px; }
+  .brand { margin-right: auto; }
+  .tabs { order: 3; width: 100%; margin-left: 0; display: grid; grid-template-columns: repeat(5, 1fr); }
+  .tabs button { padding: 6px 2px; font-size: 14px; }
+}
+.timetable .wk-times, .timetable .wk-col { margin-top: 12px; }
