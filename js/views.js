@@ -2,7 +2,7 @@
 // Clicks are handled in app.js through data-* attributes.
 
 import { fmt, hoursLabel, columns, parseKey } from './time.js';
-import { CATS } from './store.js';
+import { CATS, weeklyMinutes } from './store.js';
 
 export const START_H = 6, END_H = 24;
 export const CAT_LABEL = { work: 'Work', study: 'Study', personal: 'Personal', break: 'Break' };
@@ -42,6 +42,17 @@ function upNext(items, isToday, nowMin) {
   return (isToday && nx.start <= nowMin ? 'Now · ' : fmt(nx.start) + ' · ') + esc(nx.name);
 }
 
+const DAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// "every Mon, Wed", "every 2 weeks on Tue", "every day until 19 Dec"
+export function repeatLabel(t) {
+  const days = [...t.repeat].sort((a, b) => (a + 6) % 7 - (b + 6) % 7);
+  const which = days.length === 7 ? 'day' : days.join() === '1,2,3,4,5' ? 'weekday' : days.map(d => DAY_SHORT[d]).join(', ');
+  let s = (t.every || 1) > 1 ? `every ${t.every} weeks on ${{ day: 'all days', weekday: 'weekdays' }[which] || which}` : `every ${which}`;
+  if (t.until) s += ' until ' + parseKey(t.until).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return s;
+}
+
 const shortDate = dk => parseKey(dk).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 
 function homeworkPanel(homework, dk, isToday) {
@@ -68,7 +79,7 @@ export function renderDay({ items, isToday, nowMin, dk, homework, focusMin }) {
     <li class="${it.done ? 'done' : ''}" style="--cat:var(--c-${it.cat})">
       <input type="checkbox" data-toggle="${it.id}" data-occ="${it.occ}" ${it.done ? 'checked' : ''} aria-label="Mark ${esc(it.name)} done">
       <span class="dot"></span>
-      <span class="item"><span class="time">${fmt(it.start)}–${fmt(it.end)}${it.repeat ? ' · repeats' : ''}</span>
+      <span class="item"><span class="time">${fmt(it.start)}–${fmt(it.end)}${it.repeat ? ' · ' + repeatLabel(it) : ''}</span>
         <span class="name">${esc(it.name)}</span>${it.ex ? '<span class="ex">example</span>' : ''}</span>
       <button class="link" data-edit="${it.id}" data-occ="${it.occ}">Edit</button>
     </li>`).join('')
@@ -133,6 +144,36 @@ export function renderWeek({ days, nowMin, goal }) {
       </div>
     </div>
     <p class="note">Tap a day's name to open it and see its homework.</p>`;
+}
+
+export function renderRepeats({ tasks, todayK }) {
+  const mins = tasks.reduce((a, t) => a + weeklyMinutes(t), 0);
+  const rows = tasks.length ? tasks.map(t => {
+    const ended = t.until && t.until < todayK;
+    return `
+    <li class="${ended ? 'ended' : ''}" style="--cat:var(--c-${t.cat})" data-rt="${t.id}">
+      <span class="dot"></span>
+      <span class="item"><span class="name">${esc(t.name)}</span>
+        <span class="time">${repeatLabel(t)}${ended ? ' · ended' : ''}</span></span>
+      <span class="rt-times">
+        <input type="time" value="${fmt(t.start)}" data-rt-start aria-label="${esc(t.name)} start time">
+        <span aria-hidden="true">–</span>
+        <input type="time" value="${fmt(t.end)}" data-rt-end aria-label="${esc(t.name)} end time">
+      </span>
+      <button class="link" data-edit="${t.id}">Edit</button>
+    </li>`;
+  }).join('')
+    : '<li class="empty">No repeating tasks yet. Add your classes, training or anything else that happens every week.</li>';
+  return `
+    <div class="stats">
+      <div><b>${tasks.length}</b>repeating tasks</div>
+      <div><b>${hoursLabel(Math.round(mins))}</b>a week</div>
+    </div>
+    <section class="panel agenda repeats">
+      <div class="head"><h2>All repeating tasks</h2><button class="link" data-rt-add>+ New repeating task</button></div>
+      <ul>${rows}</ul>
+    </section>
+    <p class="note">Change a time here and it changes on every day the task repeats. Use Edit for the name, days or end date.</p>`;
 }
 
 export function renderStats(ws) {

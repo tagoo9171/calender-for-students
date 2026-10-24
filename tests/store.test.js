@@ -5,6 +5,7 @@ import { columns, toMin, fmt, startOfWeek, dateKey } from '../js/time.js';
 import { weekStats } from '../js/stats.js';
 import { dueReminders } from '../js/reminders.js';
 import * as focus from '../js/focus.js';
+import { repeatLabel } from '../js/views.js';
 
 // 2026-10-19 is a Monday
 const MON = '2026-10-19', TUE = '2026-10-20', WED = '2026-10-21', SUN = '2026-10-25';
@@ -140,4 +141,59 @@ test('focus timer helpers', () => {
   assert.equal(focus.remaining(t, 4000), 6000);
   assert.equal(focus.remaining(t, 99999), 0);
   assert.equal(focus.remaining(focus.fresh(), 123), 25 * 60000, 'paused timer keeps its time');
+});
+
+test('repeat every 2 weeks, until a date', () => {
+  const s = store.emptyState();
+  // Lab on Tuesdays, every other week, from 20 Oct until 1 Dec
+  store.addTask(s, { name: 'Lab', start: 600, end: 720, cat: 'study', date: TUE, repeat: [2], every: 2, until: '2026-12-01' });
+  const on = dk => store.dayItems(s, dk).length === 1;
+  assert.ok(on(TUE));
+  assert.ok(!on('2026-10-27'), 'the week in between');
+  assert.ok(on('2026-11-03'));
+  assert.ok(on('2026-12-01'), 'the last day counts');
+  assert.ok(!on('2026-12-15'), 'after the end date');
+  // Weeks are counted from the week it starts, not the first day it happens
+  const t = store.addTask(s, { name: 'Club', start: 0, end: 60, cat: 'personal', date: WED, repeat: [1, 5], every: 2 });
+  assert.ok(store.occursOn(t, '2026-10-23'), 'Friday of the first week');
+  assert.ok(!store.occursOn(t, '2026-10-26'), 'Monday of the next week');
+  assert.ok(store.occursOn(t, '2026-11-02'));
+});
+
+test('weeks are counted right across a daylight saving change', () => {
+  assert.equal(store.weeksBetween('2026-10-19', '2026-11-02'), 2); // clocks change on 25 Oct in Europe
+  assert.equal(store.weeksBetween('2026-03-23', '2026-03-30'), 1);
+});
+
+test('validate checks the end date of a repeat', () => {
+  assert.match(store.validate({ name: 'x', start: 0, end: 60, repeat: [1], date: TUE, until: MON }), /end after it starts/);
+  assert.equal(store.validate({ name: 'x', start: 0, end: 60, repeat: [1], date: TUE, until: TUE }), null);
+});
+
+test('edit one day of a repeating task', () => {
+  const s = store.emptyState();
+  const t = store.addTask(s, { name: 'Maths', start: 540, end: 600, cat: 'study', date: MON, repeat: [1, 3] });
+  store.toggleDone(s, t.id, WED);
+  store.editOneDay(s, t.id, WED, { name: 'Maths (room 12)', start: 600, end: 660, cat: 'study', date: MON, repeat: [1, 3] });
+  const wed = store.dayItems(s, WED);
+  assert.deepEqual(wed.map(x => [x.name, x.start, x.done, x.repeat]), [['Maths (room 12)', 600, true, null]]);
+  assert.equal(store.dayItems(s, '2026-10-26')[0].name, 'Maths', 'other days keep the old details');
+});
+
+test('repeat labels', () => {
+  assert.equal(repeatLabel({ repeat: [3, 1] }), 'every Mon, Wed');
+  assert.equal(repeatLabel({ repeat: [1, 2, 3, 4, 5] }), 'every weekday');
+  assert.equal(repeatLabel({ repeat: [0, 1, 2, 3, 4, 5, 6], every: 2 }), 'every 2 weeks on all days');
+  assert.equal(repeatLabel({ repeat: [2], until: '2026-12-01' }), 'every Tue until 1 Dec');
+});
+
+test('repeating tasks are listed in week order with their weekly time', () => {
+  const s = store.emptyState();
+  store.addTask(s, { name: 'Football', start: 1080, end: 1200, cat: 'personal', date: MON, repeat: [6] });
+  store.addTask(s, { name: 'Dentist', start: 600, end: 660, cat: 'personal', date: TUE, repeat: null });
+  store.addTask(s, { name: 'Maths', start: 540, end: 600, cat: 'study', date: MON, repeat: [3, 1] });
+  store.addTask(s, { name: 'Choir', start: 480, end: 540, cat: 'personal', date: MON, repeat: [0] });
+  store.addTask(s, { name: 'Lab', start: 840, end: 960, cat: 'study', date: MON, repeat: [2], every: 2 });
+  assert.deepEqual(store.repeatingTasks(s).map(t => t.name), ['Maths', 'Lab', 'Football', 'Choir']);
+  assert.deepEqual(store.repeatingTasks(s).map(store.weeklyMinutes), [120, 60, 120, 60]);
 });

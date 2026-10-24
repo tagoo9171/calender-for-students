@@ -7,7 +7,8 @@ A day planner for students that you can install on your phone and computer.
 - **Homework:** add assignments with a due date and tick them off
 - **Focus timer:** 25 minutes of focus and a 5 minute break; finished sessions add up to today's focus time
 - **Stats:** hours planned and done this week, by type and by day
-- **Repeating tasks:** for example "Gym every Mon, Wed and Fri"
+- **Repeating tasks:** for example "Gym every Mon, Wed and Fri", "Lab every 2 weeks" or "Maths every weekday until 18 Dec". You can change a single day without changing the rest.
+- **Repeats screen:** all repeating tasks in one list, where you can change their times directly
 - **Reminders:** a notification before a task starts (while the app is open)
 - **Works offline**, and keeps your data on your device. Use *Settings → Download backup* to move it.
 

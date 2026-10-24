@@ -197,3 +197,22 @@ input:not([type=checkbox]):not([type=file]), select {
   .tabs { margin-left: 0; }
   .tabs button { padding: 6px 10px; }
 }
+
+/* repeat options in the task editor */
+.repeat-box { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 10px; background: var(--bg); }
+.repeat-box input:not([type=checkbox]), .repeat-box select { background: var(--surface); }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border-radius: 999px; padding: 4px 12px; font-size: 13px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form label small { text-transform: none; letter-spacing: 0; }
+
+/* repeating tasks screen */
+.repeats li { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+.repeats li.ended { opacity: .55; }
+.rt-times { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.rt-times input[type=time] { width: auto; padding: 6px 8px; font-family: var(--mono); font-size: 15px; }
+@media (max-width: 560px) {
+  .repeats li { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .repeats .rt-times { grid-column: 2 / -1; grid-row: 2; }
+  .repeats li > .link { grid-column: 3; grid-row: 1; }
+}

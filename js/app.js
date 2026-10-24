@@ -1,7 +1,7 @@
-import { dateKey, parseKey, addDays, startOfWeek, nowMinutes } from './time.js';
+import { dateKey, parseKey, addDays, startOfWeek, nowMinutes, toMin } from './time.js';
 import * as store from './store.js';
 import { weekStats } from './stats.js';
-import { renderDay, renderWeek, renderStats, START_H } from './views.js';
+import { renderDay, renderWeek, renderStats, renderRepeats, START_H } from './views.js';
 import { createEditor } from './editor.js';
 import { startReminders, askPermission, notificationsSupported, notify } from './reminders.js';
 import { createFocusTimer } from './focus.js';
@@ -42,7 +42,13 @@ function render() {
   const nowMin = nowMinutes();
   document.querySelectorAll('[data-view]').forEach(b => b.setAttribute('aria-selected', b.dataset.view === view));
 
-  if (view === 'day') {
+  $('daynav').hidden = view === 'repeats';
+  if (view === 'repeats') {
+    const tasks = store.repeatingTasks(state);
+    $('title').textContent = 'Repeating tasks';
+    $('sub').textContent = 'Your weekly routine in one place';
+    $('view').innerHTML = renderRepeats({ tasks, todayK });
+  } else if (view === 'day') {
     const dk = dateKey(cursor);
     const isToday = dk === todayK;
     $('title').textContent = isToday ? 'Today' : cursor.toLocaleDateString('en-GB', { weekday: 'long' });
@@ -117,6 +123,7 @@ const editor = createEditor({
       commit('Added');
     }
   },
+  onSaveOne(id, dk, data) { snapshot(); store.editOneDay(state, id, dk, data); commit('Changed for this day only', { undo: true }); },
   onDelete(id) { snapshot(); store.removeTask(state, id); commit('Deleted', { undo: true }); },
   onSkip(id, dk) { snapshot(); store.skipDay(state, id, dk); commit('Removed from this day', { undo: true }); },
 });
@@ -124,6 +131,7 @@ const editor = createEditor({
 // ---------- events ----------
 
 $('view').addEventListener('click', e => {
+  if (e.target.closest('[data-rt-add]')) { editor.open({ date: dateKey(new Date()), start: 540, repeat: true }); return; }
   const hwAdd = e.target.closest('[data-hw-add]');
   if (hwAdd) { openHomework(hwAdd.dataset.hwAdd); return; }
   const hwDel = e.target.closest('[data-hw-del]');
@@ -139,6 +147,8 @@ $('view').addEventListener('click', e => {
 });
 
 $('view').addEventListener('change', e => {
+  const row = e.target.closest('[data-rt]');
+  if (row) { setTimes(row); return; }
   const hw = e.target.closest('[data-hw-toggle]');
   if (hw) { store.toggleHomework(state, Number(hw.dataset.hwToggle)); commit(); return; }
   const t = e.target.closest('[data-toggle]');
@@ -167,7 +177,7 @@ $('todayBtn').addEventListener('click', () => { cursor = new Date(); cursor.setH
 $('addBtn').addEventListener('click', () => {
   const isToday = dateKey(cursor) === dateKey(new Date());
   const start = isToday ? Math.min(Math.ceil((nowMinutes() + 1) / 30) * 30, 1380) : 540;
-  editor.open({ date: dateKey(cursor), start });
+  editor.open({ date: dateKey(cursor), start, repeat: view === 'repeats' });
 });
 
 document.addEventListener('keydown', e => {
@@ -176,6 +186,22 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight') move(1);
   if (e.key === 'n') $('addBtn').click();
 });
+
+// ---------- repeating tasks ----------
+
+// Saves the start and end time typed into a row of the Repeats screen
+function setTimes(row) {
+  const start = row.querySelector('[data-rt-start]').value;
+  let end = row.querySelector('[data-rt-end]').value;
+  if (!start || !end) return; // still typing
+  end = toMin(end) || 1440; // "00:00" as an end time means midnight
+  const id = Number(row.dataset.rt);
+  const task = state.tasks.find(t => t.id === id);
+  const err = store.validate({ ...task, start: toMin(start), end });
+  if (err) { toast(err); render(); return; }
+  store.updateTask(state, id, { start: toMin(start), end, ex: false });
+  commit('Time saved for every repeat');
+}
 
 // ---------- homework ----------
 
@@ -273,7 +299,8 @@ $('importFile').addEventListener('change', async e => {
 
 render();
 scrollToNow();
-setInterval(render, 60000);
+// Redraw every minute for the "now" line, but not while a time is being typed on the Repeats screen
+setInterval(() => { if (view !== 'repeats' || !$('view').contains(document.activeElement)) render(); }, 60000);
 startReminders(() => state, toast);
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {

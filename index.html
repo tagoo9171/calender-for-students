@@ -19,6 +19,7 @@
       <nav class="tabs" role="tablist" aria-label="Views">
         <button role="tab" data-view="day">Day</button>
         <button role="tab" data-view="week">Week</button>
+        <button role="tab" data-view="repeats">Repeats</button>
         <button role="tab" data-view="stats">Stats</button>
       </nav>
       <button id="focusBtn" class="icon-btn focus-btn" aria-label="Focus timer">⏱</button>
@@ -32,7 +33,7 @@
         <h1 id="title">Today</h1>
         <p class="sub" id="sub"></p>
       </div>
-      <div class="daynav">
+      <div class="daynav" id="daynav">
         <button id="prev" aria-label="Previous">←</button>
         <button id="todayBtn">Today</button>
         <button id="next" aria-label="Next">→</button>
@@ -60,8 +61,13 @@
           <option value="break">Break</option>
         </select>
       </label>
-      <label class="check full"><input type="checkbox" id="edRepeat"> Repeat every week</label>
-      <div class="days full" id="edDays" hidden>
+      <label class="check full"><input type="checkbox" id="edRepeat"> Repeat</label>
+      <div class="repeat-box full" id="edDays" hidden>
+        <div class="presets">
+          <button type="button" class="chip" data-preset="0,1,2,3,4,5,6">Every day</button>
+          <button type="button" class="chip" data-preset="1,2,3,4,5">Mon–Fri</button>
+        </div>
+        <div class="days">
         <label><input type="checkbox" name="repeat" value="1"><span>Mon</span></label>
         <label><input type="checkbox" name="repeat" value="2"><span>Tue</span></label>
         <label><input type="checkbox" name="repeat" value="3"><span>Wed</span></label>
@@ -69,9 +75,26 @@
         <label><input type="checkbox" name="repeat" value="5"><span>Fri</span></label>
         <label><input type="checkbox" name="repeat" value="6"><span>Sat</span></label>
         <label><input type="checkbox" name="repeat" value="0"><span>Sun</span></label>
+        </div>
+        <div class="pair">
+          <label>Every
+            <select id="edEvery">
+              <option value="1">week</option>
+              <option value="2">2 weeks</option>
+              <option value="3">3 weeks</option>
+              <option value="4">4 weeks</option>
+            </select>
+          </label>
+          <label>Until <small>(optional)</small><input id="edUntil" type="date"></label>
+        </div>
       </div>
-      <p class="note full" id="edNote" hidden>Changes apply to every repeat of this task.</p>
+      <p class="note full" id="edNote" hidden></p>
       <p class="err full" id="edErr" hidden></p>
+      <div class="confirm full" id="saveConfirm" hidden>
+        <span>Save the changes for:</span>
+        <button type="button" id="saveOne">Only this day</button>
+        <button type="button" id="saveAll" class="primary">Every repeat</button>
+      </div>
       <div class="confirm full" id="delConfirm" hidden>
         <span>Delete this repeating task:</span>
         <button type="button" id="delOne">Only this day</button>

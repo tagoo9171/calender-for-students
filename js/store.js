@@ -1,17 +1,19 @@
 // The app's data and every change to it. Saved as JSON in localStorage.
 //
 // A task looks like:
-//   { id, name, start, end, cat, date, repeat, skip }
+//   { id, name, start, end, cat, date, repeat, every, until, skip }
 //   start/end: minutes after midnight
 //   date:      "YYYY-MM-DD" — the day of a one-off task, or the first day of a repeating one
 //   repeat:    null, or weekdays it repeats on (0 = Sunday … 6 = Saturday)
+//   every:     repeat every 1, 2, 3 or 4 weeks (missing means 1)
+//   until:     null, or the last day a repeating task can happen on
 //   skip:      days removed from a repeating task
 // "Done" is tracked per day in state.done["<id>|<date>"], so each repeat is ticked off separately.
 //
 // Homework looks like { id, name, due, done }, with due as "YYYY-MM-DD".
 // Focus minutes are kept per day in state.focus["<date>"].
 
-import { parseKey } from './time.js';
+import { parseKey, startOfWeek } from './time.js';
 
 export const KEY = 'daybook:v2';
 const OLD_KEY = 'daybook-v1';
@@ -55,10 +57,17 @@ export function save(storage, state) {
   try { storage.setItem(KEY, JSON.stringify(state)); return true; } catch { return false; }
 }
 
+// Whole weeks between the weeks (Monday to Sunday) that two days fall in
+export function weeksBetween(fromK, toK) {
+  const ms = startOfWeek(parseKey(toK)) - startOfWeek(parseKey(fromK));
+  return Math.round(ms / (7 * 864e5)); // round, because of daylight saving changes
+}
+
 export function occursOn(t, dk) {
   if (!t.repeat) return t.date === dk;
-  if (dk < t.date || t.skip?.includes(dk)) return false;
-  return t.repeat.includes(parseKey(dk).getDay());
+  if (dk < t.date || (t.until && dk > t.until) || t.skip?.includes(dk)) return false;
+  if (!t.repeat.includes(parseKey(dk).getDay())) return false;
+  return weeksBetween(t.date, dk) % (t.every || 1) === 0;
 }
 
 // Everything planned for one day, sorted, with that day's done flag
@@ -69,10 +78,11 @@ export function dayItems(state, dk) {
     .sort((a, b) => a.start - b.start || a.end - b.end);
 }
 
-export function validate({ name, start, end, repeat }) {
+export function validate({ name, start, end, repeat, date, until }) {
   if (!name || !name.trim()) return 'Give the task a name.';
   if (end <= start) return 'The end time must be after the start time.';
   if (repeat && !repeat.length) return 'Pick at least one day to repeat on.';
+  if (repeat && until && until < date) return 'The repeat must end after it starts.';
   return null;
 }
 
@@ -99,6 +109,27 @@ export function skipDay(state, id, dk) {
   if (!t) return;
   t.skip = [...(t.skip || []), dk];
   delete state.done[id + '|' + dk];
+}
+
+// Every repeating task, in week order: by its first day (Monday first), then start time
+export function repeatingTasks(state) {
+  const first = t => Math.min(...t.repeat.map(d => (d + 6) % 7));
+  return state.tasks.filter(t => t.repeat).sort((a, b) => first(a) - first(b) || a.start - b.start);
+}
+
+// Minutes a repeating task takes up in an average week
+export const weeklyMinutes = t => (t.end - t.start) * t.repeat.length / (t.every || 1);
+
+// Changes one day of a repeating task: that day is removed from the repeat
+// and a one-off task with the changes takes its place.
+export function editOneDay(state, id, dk, data) {
+  const t = state.tasks.find(x => x.id === id);
+  if (!t) return null;
+  const wasDone = !!state.done[id + '|' + dk];
+  skipDay(state, id, dk);
+  const one = addTask(state, { ...data, date: dk, repeat: null, every: 1, until: null });
+  if (wasDone) state.done[one.id + '|' + dk] = true;
+  return one;
 }
 
 export function toggleDone(state, id, dk) {
