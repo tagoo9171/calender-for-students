@@ -1,9 +1,9 @@
 // Service worker: keeps Daybook working offline.
 // Bump CACHE when you change the app's files so phones pick up the new version.
-const CACHE = 'daybook-v1';
+const CACHE = 'daybook-v2';
 const ASSETS = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
-  'js/app.js', 'js/time.js', 'js/store.js', 'js/stats.js', 'js/views.js', 'js/editor.js', 'js/reminders.js',
+  'js/app.js', 'js/time.js', 'js/store.js', 'js/stats.js', 'js/views.js', 'js/editor.js', 'js/reminders.js', 'js/focus.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 

@@ -3,7 +3,8 @@ import * as store from './store.js';
 import { weekStats } from './stats.js';
 import { renderDay, renderWeek, renderStats, START_H } from './views.js';
 import { createEditor } from './editor.js';
-import { startReminders, askPermission, notificationsSupported } from './reminders.js';
+import { startReminders, askPermission, notificationsSupported, notify } from './reminders.js';
+import { createFocusTimer } from './focus.js';
 
 const $ = id => document.getElementById(id);
 const VIEW_KEY = 'daybook:view';
@@ -47,7 +48,10 @@ function render() {
     $('title').textContent = isToday ? 'Today' : cursor.toLocaleDateString('en-GB', { weekday: 'long' });
     $('sub').textContent = cursor.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     $('todayBtn').textContent = 'Today';
-    $('view').innerHTML = renderDay({ items: store.dayItems(state, dk), isToday, nowMin });
+    $('view').innerHTML = renderDay({
+      items: store.dayItems(state, dk), isToday, nowMin, dk,
+      homework: store.homeworkFor(state, dk, todayK), focusMin: state.focus[dk] || 0,
+    });
   } else {
     const ws = startOfWeek(cursor);
     const we = addDays(ws, 6);
@@ -58,9 +62,14 @@ function render() {
     if (view === 'week') {
       const days = Array.from({ length: 7 }, (_, i) => {
         const dk = dateKey(addDays(ws, i));
-        return { dk, isToday: dk === todayK, items: store.dayItems(state, dk) };
+        return { dk, isToday: dk === todayK, items: store.dayItems(state, dk), homework: store.homeworkFor(state, dk, todayK) };
       });
-      $('view').innerHTML = renderWeek({ days, nowMin });
+      const goal = {
+        done: weekStats(state, ws).cats.study.done,
+        target: state.settings.studyGoal * 60,
+        focus: days.reduce((a, d) => a + (state.focus[d.dk] || 0), 0),
+      };
+      $('view').innerHTML = renderWeek({ days, nowMin, goal });
     } else {
       $('view').innerHTML = renderStats(weekStats(state, ws));
     }
@@ -115,6 +124,10 @@ const editor = createEditor({
 // ---------- events ----------
 
 $('view').addEventListener('click', e => {
+  const hwAdd = e.target.closest('[data-hw-add]');
+  if (hwAdd) { openHomework(hwAdd.dataset.hwAdd); return; }
+  const hwDel = e.target.closest('[data-hw-del]');
+  if (hwDel) { snapshot(); store.removeHomework(state, Number(hwDel.dataset.hwDel)); commit('Homework deleted', { undo: true }); return; }
   const edit = e.target.closest('[data-edit]');
   if (edit) {
     const task = state.tasks.find(t => t.id === Number(edit.dataset.edit));
@@ -126,6 +139,8 @@ $('view').addEventListener('click', e => {
 });
 
 $('view').addEventListener('change', e => {
+  const hw = e.target.closest('[data-hw-toggle]');
+  if (hw) { store.toggleHomework(state, Number(hw.dataset.hwToggle)); commit(); return; }
   const t = e.target.closest('[data-toggle]');
   if (!t) return;
   store.toggleDone(state, Number(t.dataset.toggle), t.dataset.occ);
@@ -162,6 +177,45 @@ document.addEventListener('keydown', e => {
   if (e.key === 'n') $('addBtn').click();
 });
 
+// ---------- homework ----------
+
+function openHomework(date) {
+  $('hwName').value = '';
+  $('hwDue').value = date;
+  $('hwErr').hidden = true;
+  $('hwDlg').showModal();
+  $('hwName').focus();
+}
+
+$('hwForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const name = $('hwName').value.trim();
+  const due = $('hwDue').value;
+  if (!name || !due) {
+    $('hwErr').textContent = name ? 'Pick the day it is due.' : 'Give the homework a name.';
+    $('hwErr').hidden = false;
+    return;
+  }
+  store.addHomework(state, { name, due });
+  $('hwDlg').close();
+  commit('Homework added');
+});
+$('hwCancel').addEventListener('click', () => $('hwDlg').close());
+
+// ---------- focus timer ----------
+
+createFocusTimer({
+  onFocusDone(minutes) {
+    store.addFocus(state, dateKey(new Date()), minutes);
+    commit(`Focus session done (+${minutes} min). Take a short break.`);
+    notify('Focus session done', 'Time for a 5 minute break.');
+  },
+  onBreakDone() {
+    toast('Break is over. Start the next focus session when you are ready.');
+    notify('Break is over', 'Ready for the next focus session?');
+  },
+});
+
 // ---------- settings ----------
 
 function syncNotifyStatus() {
@@ -176,10 +230,17 @@ function syncNotifyStatus() {
 
 $('settingsBtn').addEventListener('click', () => {
   $('remind').value = String(state.settings.remind);
+  $('studyGoal').value = String(state.settings.studyGoal);
   syncNotifyStatus();
   $('settings').showModal();
 });
 $('remind').addEventListener('change', () => { state.settings.remind = Number($('remind').value); commit(); });
+$('studyGoal').addEventListener('change', () => {
+  const h = Math.round(Number($('studyGoal').value));
+  state.settings.studyGoal = Number.isFinite(h) ? Math.min(Math.max(h, 0), 100) : 10;
+  $('studyGoal').value = String(state.settings.studyGoal);
+  commit();
+});
 $('notifyBtn').addEventListener('click', async () => { await askPermission(); syncNotifyStatus(); });
 $('closeSettings').addEventListener('click', () => $('settings').close());
 
@@ -198,7 +259,8 @@ $('importFile').addEventListener('change', async e => {
     const data = JSON.parse(await file.text());
     if (!Array.isArray(data.tasks)) throw new Error();
     snapshot();
-    state = { ...store.emptyState(), ...data };
+    const empty = store.emptyState();
+    state = { ...empty, ...data, settings: { ...empty.settings, ...data.settings } };
     $('settings').close();
     commit('Backup restored', { undo: true });
   } catch {

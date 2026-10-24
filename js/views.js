@@ -42,7 +42,25 @@ function upNext(items, isToday, nowMin) {
   return (isToday && nx.start <= nowMin ? 'Now · ' : fmt(nx.start) + ' · ') + esc(nx.name);
 }
 
-export function renderDay({ items, isToday, nowMin }) {
+const shortDate = dk => parseKey(dk).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+
+function homeworkPanel(homework, dk, isToday) {
+  const when = h => h.overdue ? `Overdue · was due ${shortDate(h.due)}` : isToday ? 'Due today' : 'Due ' + shortDate(dk);
+  const list = homework.length ? homework.map(h => `
+    <li class="${h.done ? 'done' : ''}${h.overdue ? ' overdue' : ''}">
+      <input type="checkbox" data-hw-toggle="${h.id}" ${h.done ? 'checked' : ''} aria-label="Mark ${esc(h.name)} done">
+      <span class="item"><span class="time">${when(h)}</span><span class="name">${esc(h.name)}</span></span>
+      <button class="link" data-hw-del="${h.id}" aria-label="Delete ${esc(h.name)}">Delete</button>
+    </li>`).join('')
+    : '<li class="empty">No homework due.</li>';
+  return `
+      <section class="panel agenda homework">
+        <div class="head"><h2>Homework</h2><button class="link" data-hw-add="${dk}">+ Add homework</button></div>
+        <ul>${list}</ul>
+      </section>`;
+}
+
+export function renderDay({ items, isToday, nowMin, dk, homework, focusMin }) {
   const HOUR = 56;
   const mins = items.reduce((a, x) => a + x.end - x.start, 0);
   const done = items.filter(x => x.done).length;
@@ -60,6 +78,7 @@ export function renderDay({ items, isToday, nowMin }) {
     <div class="stats">
       <div><b>${hoursLabel(mins)}</b>planned</div>
       <div><b>${done} / ${items.length}</b>done</div>
+      <div><b>${hoursLabel(focusMin)}</b>focused</div>
       <div class="grow"><b>${upNext(items, isToday, nowMin)}</b>up next</div>
     </div>
     <div class="grid">
@@ -68,32 +87,52 @@ export function renderDay({ items, isToday, nowMin }) {
           ${hourLines(HOUR)}${blocks(items, HOUR)}${isToday ? nowLine(nowMin, HOUR) : ''}
         </div>
       </div>
-      <section class="panel agenda">
-        <h2>Agenda</h2>
-        <ul>${agenda}</ul>
-      </section>
+      <div class="side">
+        <section class="panel agenda">
+          <h2>Agenda</h2>
+          <ul>${agenda}</ul>
+        </section>
+        ${homeworkPanel(homework, dk, isToday)}
+      </div>
     </div>`;
 }
 
-export function renderWeek({ days, nowMin }) {
+// goal: { done, target, focus } in minutes — Study tasks done, the weekly goal, focus time
+function goalPanel({ done, target, focus }) {
+  if (!target) return '';
+  const pct = Math.min(100, Math.round(done / target * 100));
+  const msg = done >= target ? 'Goal reached. Well done!' : `${hoursLabel(target - done)} to go`;
+  return `
+    <section class="panel goal">
+      <div class="head"><h2>Study goal</h2><span class="val">${hoursLabel(done)} / ${hoursLabel(target)} · ${msg}</span></div>
+      <div class="bar" style="--cat:var(--c-study)" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Study goal">
+        <div class="bar-planned" style="width:100%"><div class="bar-done" style="width:${pct}%"></div></div>
+      </div>
+      <p class="note">Counts Study tasks you tick off. You also focused for ${hoursLabel(focus)} this week. Change the goal in Settings.</p>
+    </section>`;
+}
+
+export function renderWeek({ days, nowMin, goal }) {
   const HOUR = 40;
   const head = days.map(d => {
     const date = parseKey(d.dk);
+    const due = d.homework.filter(h => !h.done && h.due === d.dk).length;
     return `<button class="wk-head${d.isToday ? ' today' : ''}" data-day="${d.dk}">
-      <span>${date.toLocaleDateString('en-GB', { weekday: 'short' })}</span><b>${date.getDate()}</b></button>`;
+      <span>${date.toLocaleDateString('en-GB', { weekday: 'short' })}</span><b>${date.getDate()}</b>
+      ${due ? `<span class="hw-due" title="${due} homework due">${due} due</span>` : ''}</button>`;
   }).join('');
   const cols = days.map(d => `
     <div class="wk-col${d.isToday ? ' today' : ''}">
       ${hourLines(HOUR, false)}${blocks(d.items, HOUR)}${d.isToday ? nowLine(nowMin, HOUR) : ''}
     </div>`).join('');
-  return `
+  return `${goalPanel(goal)}
     <div class="panel week" id="scroller">
       <div class="wk-grid">
         <div class="wk-corner"></div>${head}
         <div class="wk-times" style="height:${(END_H - START_H) * HOUR}px">${hourLines(HOUR)}</div>${cols}
       </div>
     </div>
-    <p class="note">Tap a day's name to open it.</p>`;
+    <p class="note">Tap a day's name to open it and see its homework.</p>`;
 }
 
 export function renderStats(ws) {

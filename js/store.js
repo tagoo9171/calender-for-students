@@ -7,6 +7,9 @@
 //   repeat:    null, or weekdays it repeats on (0 = Sunday … 6 = Saturday)
 //   skip:      days removed from a repeating task
 // "Done" is tracked per day in state.done["<id>|<date>"], so each repeat is ticked off separately.
+//
+// Homework looks like { id, name, due, done }, with due as "YYYY-MM-DD".
+// Focus minutes are kept per day in state.focus["<date>"].
 
 import { parseKey } from './time.js';
 
@@ -14,7 +17,9 @@ export const KEY = 'daybook:v2';
 const OLD_KEY = 'daybook-v1';
 export const CATS = ['work', 'study', 'personal', 'break'];
 
-export const emptyState = () => ({ tasks: [], done: {}, settings: { remind: 5 }, nextId: 1 });
+export const emptyState = () => ({
+  tasks: [], done: {}, homework: [], focus: {}, settings: { remind: 5, studyGoal: 10 }, nextId: 1,
+});
 
 // Returns the saved state, or null on a first visit.
 export function load(storage) {
@@ -100,4 +105,36 @@ export function toggleDone(state, id, dk) {
   const k = id + '|' + dk;
   if (state.done[k]) delete state.done[k];
   else state.done[k] = true;
+}
+
+// ---------- homework ----------
+
+export function addHomework(state, { name, due }) {
+  const h = { id: state.nextId++, name, due, done: false };
+  state.homework.push(h);
+  return h;
+}
+
+export function toggleHomework(state, id) {
+  const h = state.homework.find(x => x.id === id);
+  if (h) h.done = !h.done;
+}
+
+export function removeHomework(state, id) {
+  state.homework = state.homework.filter(h => h.id !== id);
+}
+
+// Homework due on dk. On today, unfinished homework from earlier days is included
+// too, marked overdue, so nothing slips through.
+export function homeworkFor(state, dk, todayK) {
+  return state.homework
+    .filter(h => h.due === dk || (dk === todayK && h.due < dk && !h.done))
+    .map(h => ({ ...h, overdue: h.due < todayK && !h.done }))
+    .sort((a, b) => a.due.localeCompare(b.due) || a.id - b.id);
+}
+
+// ---------- focus timer ----------
+
+export function addFocus(state, dk, minutes) {
+  state.focus[dk] = (state.focus[dk] || 0) + minutes;
 }

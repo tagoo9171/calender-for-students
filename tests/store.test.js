@@ -4,6 +4,7 @@ import * as store from '../js/store.js';
 import { columns, toMin, fmt, startOfWeek, dateKey } from '../js/time.js';
 import { weekStats } from '../js/stats.js';
 import { dueReminders } from '../js/reminders.js';
+import * as focus from '../js/focus.js';
 
 // 2026-10-19 is a Monday
 const MON = '2026-10-19', TUE = '2026-10-20', WED = '2026-10-21', SUN = '2026-10-25';
@@ -100,4 +101,43 @@ test('dueReminders picks tasks starting soon, once', () => {
   assert.deepEqual(dueReminders(items, 596, 5, new Set()).map(x => x.id), [1]);
   assert.deepEqual(dueReminders(items, 596, 5, new Set(['1|' + MON])), []);
   assert.deepEqual(dueReminders(items, 596, 0, new Set()), []);
+});
+
+test('homework shows on its due day, and overdue work shows on today', () => {
+  const s = store.emptyState();
+  const old = store.addHomework(s, { name: 'Essay', due: MON });
+  store.addHomework(s, { name: 'Worksheet', due: WED });
+  assert.deepEqual(store.homeworkFor(s, WED, TUE).map(h => h.name), ['Worksheet']);
+  const today = store.homeworkFor(s, TUE, TUE);
+  assert.deepEqual(today.map(h => [h.name, h.overdue]), [['Essay', true]]);
+  store.toggleHomework(s, old.id);
+  assert.equal(store.homeworkFor(s, TUE, TUE).length, 0, 'finished work is no longer overdue');
+  assert.equal(store.homeworkFor(s, MON, TUE)[0].done, true, 'but still shows on its own day');
+  store.removeHomework(s, old.id);
+  assert.equal(s.homework.length, 1);
+});
+
+test('focus minutes add up per day', () => {
+  const s = store.emptyState();
+  store.addFocus(s, MON, 25);
+  store.addFocus(s, MON, 25);
+  assert.equal(s.focus[MON], 50);
+  assert.equal(s.focus[TUE], undefined);
+});
+
+test('old saves get the new fields', () => {
+  const st = memoryStorage({ [store.KEY]: JSON.stringify({ tasks: [], done: {}, settings: { remind: 10 }, nextId: 3 }) });
+  const s = store.load(st);
+  assert.deepEqual(s.homework, []);
+  assert.deepEqual(s.focus, {});
+  assert.deepEqual(s.settings, { remind: 10, studyGoal: 10 });
+});
+
+test('focus timer helpers', () => {
+  assert.equal(focus.clock(25 * 60000), '25:00');
+  assert.equal(focus.clock(61500), '01:02', 'rounds up partial seconds');
+  const t = { phase: 'focus', endAt: 10000, left: 0 };
+  assert.equal(focus.remaining(t, 4000), 6000);
+  assert.equal(focus.remaining(t, 99999), 0);
+  assert.equal(focus.remaining(focus.fresh(), 123), 25 * 60000, 'paused timer keeps its time');
 });

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#2f5bd3">
-  <meta name="description" content="A simple day planner with reminders, repeating tasks and weekly stats.">
+  <meta name="description" content="A day planner for students with homework, a focus timer, reminders, repeating tasks and weekly stats.">
   <title>Daybook</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
@@ -21,6 +21,7 @@
         <button role="tab" data-view="week">Week</button>
         <button role="tab" data-view="stats">Stats</button>
       </nav>
+      <button id="focusBtn" class="icon-btn focus-btn" aria-label="Focus timer">⏱</button>
       <button id="settingsBtn" class="icon-btn" aria-label="Settings">⚙</button>
     </div>
   </header>
@@ -85,6 +86,40 @@
     </form>
   </dialog>
 
+  <dialog id="hwDlg">
+    <form id="hwForm" class="form" novalidate>
+      <h2>New homework</h2>
+      <label class="full">What
+        <input id="hwName" maxlength="80" placeholder="e.g. Maths worksheet 4" autocomplete="off">
+      </label>
+      <label class="full">Due<input id="hwDue" type="date" required></label>
+      <p class="err full" id="hwErr" hidden></p>
+      <div class="actions full">
+        <span class="spacer"></span>
+        <button type="button" id="hwCancel">Cancel</button>
+        <button type="submit" class="primary">Add</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="focusDlg" data-phase="focus">
+    <div class="form focus">
+      <h2 id="fcPhase">Focus</h2>
+      <p class="fc-time full" id="fcTime" role="timer" aria-live="off">25:00</p>
+      <p class="note full">25 minutes of focus, then a 5 minute break. Each finished session is added to today's focus time.</p>
+      <div class="actions full">
+        <button type="button" id="fcReset">Reset</button>
+        <button type="button" id="fcSkip">Skip to break</button>
+        <span class="spacer"></span>
+        <button type="button" id="fcStart" class="primary">Start</button>
+      </div>
+      <div class="actions full">
+        <span class="spacer"></span>
+        <button type="button" id="fcClose">Close</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="settings">
     <div class="form">
       <h2>Settings</h2>
@@ -97,6 +132,9 @@
           <option value="15">15 minutes before</option>
           <option value="30">30 minutes before</option>
         </select>
+      </label>
+      <label class="full">Weekly study goal (hours)
+        <input id="studyGoal" type="number" min="0" max="100" step="1" inputmode="numeric">
       </label>
       <div class="full stack">
         <p class="note" id="notifyStatus"></p>

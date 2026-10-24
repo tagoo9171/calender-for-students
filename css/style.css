@@ -179,3 +179,21 @@ input:not([type=checkbox]):not([type=file]), select {
 @media (prefers-reduced-motion: no-preference) {
   .block, button { transition: background-color .15s, border-color .15s; }
 }
+
+/* homework, study goal and focus timer */
+.side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.homework li { grid-template-columns: auto minmax(0, 1fr) auto; }
+.homework li.overdue .time { color: var(--danger); }
+.hw-due { font-family: var(--mono); font-size: 10px; color: var(--c-study); border: 1px solid currentColor; border-radius: 999px; padding: 0 6px; margin-top: 2px; }
+.goal { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.goal .val { white-space: normal; }
+.focus-btn { margin-left: 0; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 15px; white-space: nowrap; }
+.focus-btn.running { border-color: var(--accent); color: var(--accent); }
+.fc-time { margin: 8px 0; text-align: center; font-family: var(--display); font-weight: 700; font-size: 64px; line-height: 1; font-variant-numeric: tabular-nums; color: var(--accent); }
+#focusDlg[data-phase="break"] .fc-time { color: var(--c-personal); }
+@media (max-width: 480px) {
+  .brand { display: none; }
+  .tabs { margin-left: 0; }
+  .tabs button { padding: 6px 10px; }
+}

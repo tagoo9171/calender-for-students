@@ -32,7 +32,7 @@ export async function askPermission() {
   return Notification.requestPermission();
 }
 
-async function notify(title, body) {
+export async function notify(title, body) {
   if (!notificationsSupported() || Notification.permission !== 'granted') return;
   try {
     const reg = await navigator.serviceWorker?.getRegistration();
